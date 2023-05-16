@@ -1,3 +1,5 @@
+# SPDX-License-Identifier: Apache-2.0
+# Copyright (c) 2022-2023 Dell Inc, or its subsidiaries.
 ---
 version: '3.7'
 
@@ -71,7 +73,7 @@ services:
     command: --script=dns-service-discovery -p 5353 avahi
 
   web:
-    image: docker.io/library/httpd:2.4.55-alpine3.17
+    image: docker.io/library/httpd:2.4.57-alpine3.17
     volumes:
       - ./sztp-server/config/my-boot-image.img:/usr/local/apache2/htdocs/my-boot-image.img
     networks:

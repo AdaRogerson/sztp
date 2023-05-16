@@ -7,6 +7,8 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/opiproject/sztp/sztp-agent)](https://goreportcard.com/report/github.com/opiproject/sztp/sztp-agent)
 [![Go Doc](https://img.shields.io/badge/godoc-reference-blue.svg)](http://godoc.org/github.com/opiproject/sztp/sztp-agent)
 [![Last Release](https://img.shields.io/github/v/release/opiproject/sztp?label=Latest&style=flat-square&logo=go)](https://github.com/opiproject/sztp/releases)
+[![GitHub stars](https://img.shields.io/github/stars/opiproject/sztp.svg?style=flat-square&label=github%20stars)](https://github.com/opiproject/sztp)
+[![GitHub Contributors](https://img.shields.io/github/contributors/opiproject/sztp.svg?style=flat-square)](https://github.com/opiproject/sztp/graphs/contributors)
 
 ## I Want To Contribute
 
@@ -16,16 +18,32 @@ See [CONTRIBUTING](https://github.com/opiproject/opi/blob/main/CONTRIBUTING.md) 
 
 ## Docs
 
-* <https://www.rfc-editor.org/rfc/pdfrfc/rfc8572.txt.pdf> (Secure Zero Touch Provisioning (SZTP))
-* <https://watsen.net/docs/sztpd/0.0.11/admin-guide/#simulator>
+* [RFC 8572](https://www.rfc-editor.org/rfc/pdfrfc/rfc8572.txt.pdf)
+* [Watsen SZTPD](https://watsen.net/docs/sztpd/0.0.11/admin-guide/#simulator)
+* [cizsle | Cisco ZTP Server](https://pypi.org/project/cizsle)
+* [Juniper](https://www.juniper.net/documentation/us/en/software/junos/junos-install-upgrade/topics/concept/secure-ztp-understanding.html)
+* [Cisco](https://gestaltit.com/events/sulagna/secure-zero-touch-provisioning-with-ciscos-implementation-on-ios-xr)
+* [Nokia](https://infocenter.nokia.com/public/7750SR2110R1A/index.jsp?topic=%2Fcom.nokia.Basic_System_Configuration_Guide_21.10.R1%2Fsecure_ztp.html)
 
 ## Videos
 
 * [Cisco Secure Zero-Touch with IOS XR](https://www.youtube.com/watch?v=rl2ucWoTqyg)
 
-## sZTP Diagram
+## How SZTP works
 
-![xPU sZTP provisioning participants](./doc/sZTP-components.png)
+[See all the details here](./ZTP.md)
+
+```mermaid
+graph LR;
+    DPU[DPU or IPU]
+    Proxy[DHCP Proxy or Relay*]
+    DPU-->Proxy;
+    Proxy-->DHCPServer*;
+    Proxy-->BootstrapServer;
+    Proxy-->FileServer*;
+    Proxy-->DNSServer*;
+    Proxy-->SyslogServer*;
+```
 
 ## sZTP on DPU Diagram
 

@@ -45,7 +45,17 @@ Secure Zero Touch Provisioning (SZTP) adds a bootstrap server to DHCP-based ZTP 
 
 ## Components of ZTP deployment
 
-![sZTP components](doc/sZTP-components.png)
+```mermaid
+graph LR;
+    DPU[DPU or IPU]
+    Proxy[DHCP Proxy or Relay*]
+    DPU-->Proxy;
+    Proxy-->DHCPServer*;
+    Proxy-->BootstrapServer;
+    Proxy-->FileServer*;
+    Proxy-->DNSServer*;
+    Proxy-->SyslogServer*;
+```
 
 - DPU or IPU device: new shipped device that is physically connected and powered but missing config and needs provisioning. Runs sZTP agent/client and uses DHCP client for deployment.
 - DHCP server (optional): allocates a temporary IP address, default gateway, DNS server address, and bootstrap server IP or URL to the device to be deployed using sZTP. Some customers don't use DHCP, so either mDNS or static IP address allocation is applied.
@@ -54,6 +64,16 @@ Secure Zero Touch Provisioning (SZTP) adds a bootstrap server to DHCP-based ZTP 
 - Deployment file server (optional): can be co-located with bootsrap server, but for scalability (maybe with load balancer) should be separate. Holds deploy image files and config files that devices can download securely (HTTPS) after redirection from Bootsrap Server.
 - DNS server (optional): maps domain names to IP addresses (for example bootstrap server and Deployment file server IPs).
 - Syslog server (optional): holds/collects logs during the sZTP process.
+
+## Infrastructure Components
+
+- Trusted Platform Module (TPM) 2.0
+- Digital Device IDs (DevIDs)
+- DevID Certificates
+- X.509 Pinned Domain Certificates (PDCs)
+- Owner Certificates
+- DevID Trust Anchors
+- Vouchers
 
 ## Requirements
 
@@ -80,16 +100,70 @@ Those steps will also help to understand the sZTP process from the network/syste
 
 ## Device bootsraping before sZTP
 
+- OPI assumes sZTP agent is already present on DPUs
 - OPI is *not* mandating any specific method to bring the inital image on the DPU and IPU devices
+- OPI is *not* mandating where sZTP agent is running: DPU OS or DPU BMC
 - There are several options that can be utilized, as an example, to help define the scope:
   - Pre-installed image from the factory with sZTP agent present (can be old)
   - Network boot methods (for example HTTPs from UEFI) for the volatile image with sZTP agent present
+  - Pre-installed agent from the factory on the BMC of the DPU and not on the main OS cores
 - sZTP agent will always start running on device boot
 - In case sZTP process is disabled or already happened, sZTP agent will exit
 
 ## sZTP process
 
-![Provisioning Sequence](doc/sZTP-sequence.png)
+```mermaid
+sequenceDiagram
+    participant Host
+    participant DPU
+    participant DHCP as DHCP Server
+    participant SZTP as sZTP Bootstrap Server
+    participant HTTP as File HTTPs Server
+    participant Voucher as Voucher Server
+    participant CA as CA Server
+    participant LOG as Log Server
+    Host->>DPU: Power On
+    loop Discovery
+       DPU->>DPU: Choose port/interface for onboarding
+       DPU->>DHCP: DHCP broadcast request
+       DHCP->>DPU: DHCP response with CUSTOM option for BOOTSTRAP server
+    end
+    loop DPU joins the network
+       DPU->>SZTP: TLS/HTTPs request to join the network sending IDevID
+       SZTP->>SZTP: Extract Voucher Server URL from IDevID
+       SZTP->>Voucher: Get the Voucher
+       Voucher->>SZTP: Voucher
+       SZTP->>SZTP: Validate Voucher
+       SZTP->>DPU: DPU is accepted to the network
+    end
+    loop DPU trusts the network
+       DPU->>SZTP: Get the Voucher
+       SZTP->>DPU: Voucher
+       DPU->>DPU: Verify IDevID
+       DPU->>DPU: Verify TLS cert vs Voucher cert
+    end
+    loop LDevID
+       DPU->>SZTP: Get CA server URL
+       SZTP->>DPU: CA server URL
+       DPU->>CA: Send CSR (SCEP protocol)
+       CA->>DPU: New certificate
+       DPU->>DPU: LDevID
+    end
+    loop FW and OS images
+       DPU->>SZTP: TLS/HTTPs Get conveyed information file
+       SZTP->>DPU: conveyed information file
+       DPU->>DPU: Check conveyed information file for redirect
+       DPU->>HTTP: TLS/HTTPs Download Config, OS, FW images and installation scripts
+       HTTP->>DPU: images and files
+       DPU->>DPU: Install OS image first in case version is different
+       DPU->>DPU: Reboot
+       DPU->>DPU: Run pre-configuration scripts
+       DPU->>DPU: Save configuration file
+       DPU->>DPU: Run post-configuration scripts
+       DPU->>SZTP: Notify proccess completed
+    end
+    
+```
 
 ### Discovery
 
@@ -248,18 +322,13 @@ Question: OPI can produce an agent (container) that runs on DPU or IPU for examp
 
 will be tested part of [POC](https://github.com/opiproject/opi-poc/tree/main/integration/pxe)
 
-## What OPI produces?
+## What OPI produces
 
-- OPI can produce secure provisioning server/vm/container that follows some well defined SPEC
-- Any other implementation of the secure provisioning server/vm/container is also acceptable if follows same SPEC
-- xPU vendors will adopt their implementation to meet this secure provisioning server/vm/container
+- OPI implements and mantains vendor agnostic "SZTP AGENT" open source code based on the spec above to perform the onboarding of DPUs
+- OPI standardizes "SZTP AGENT" interactions with DPU environment (like TPM, SMBIOS, and so on)
+- OPI mandates DPU vendors to integrate "SZTP AGENT" in the factory into base OS or BMC image
+- OPI mandates DPU vendors to store IDevID into DPU's TPM
+- OPI can optionally produce secure provisioning server that follows the above spec
+  - Any other implementation of the secure provisioning server is also acceptable
+  - For example, <https://pypi.org/project/sztpd>
 - Provisioning companies/customers will use API defined to the secure provisioning server/vm/container to integrate in their existing provisioning methods
-- Another option would be to actually implement a generic *client* to consume this SPEC/protocol and facilitate provisioning. Obviously there will be parts of the provisioning process that are propiertary, but surely most of it can be vendor-agnostic, based on the spec.
-
-- OPI can also produce an agent (container/service) for Standard Inventory Query that everybody (existing provisioning systems) can query
-
-what is the adoption rate of UEFI on DPUs or IPUs? Should it be relied upon?
-
-## TBD
-
-tbd
